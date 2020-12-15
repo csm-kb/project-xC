@@ -286,7 +286,7 @@ class SPECTRE_VM(threading.Thread):
         self.setDaemon(True)
 
         # cpu registers
-        self.mem = RAM(2**11) # 2048 bits (0.25 kB)
+        self.mem = RAM(2**11) # 2048 bits (0.25 kB = 256 bytes)
         self.memlock = threading.Lock()
         self.cpu = CPU(self.mem, self.memlock)
         self.__run_state = run_state
@@ -367,6 +367,11 @@ def parse_shell(line):
     #
     # - 'exec' > runs the loaded assembly code
     #
+    #
+    # sample command sequence for executing raw 0x0-loaded code and viewing memory:
+    # - load "file" --rxe
+    # - cpu-unhalt
+    # - memdump -f
 
     # validate flags and args
     if 'exit' == argv[0]:
