@@ -21,6 +21,28 @@ optable = {
     'loadi' : 17,
     'stori' : 18
 }
+op_lookup = {
+    0	: 'nop',
+	1	: 'mov',
+	2	: 'add',
+	3	: 'sub',
+	4	: 'beq',
+	5	: 'bne',
+	6	: 'blt',
+	7	: 'bgt',
+	8	: 'jmp',
+	9	: 'jal',
+	10	: 'jr',
+	11	: 'load',
+	12	: 'stor',
+	13	: 'sysc',
+    # alternate imms
+	14	: 'movi',
+	15	: 'addi',
+	16	: 'subi',
+	17	: 'loadi',
+	18	: 'stori'
+}
 # // register table //
 regtable = {
     '$nil'  : 0,

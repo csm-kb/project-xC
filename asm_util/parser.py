@@ -414,7 +414,7 @@ class xcParser:
                     _bytecode.append(_regval)
                 # else, if this is an immediate value
                 elif re.match('^([0-9]+|0x([0-9a-f])+)$',tokens[1]):
-                    _immval = BitArray( '{}'.format( hex(int(tokens[1])) ) )
+                    _immval = BitArray( '{}'.format( hex(int(tokens[1],0) * 16) ) )
                     while len(_immval) < 58:
                         _immval.insert('0b0',0)
                     _bytecode.append(_immval)
@@ -426,7 +426,7 @@ class xcParser:
                         or (_syment[1] == 'F' and _syment[2] == 'R' and _syment[3] == 'I')
                     # if this is a value we can immediately substitute into the instruction
                     if _valid_imm_internal:
-                        _subval = BitArray( '{}'.format( hex(_syment[0]) ) )
+                        _subval = BitArray( '{}'.format( hex(_syment[0] * 16) ) )
                         while len(_subval) < 58:
                             _subval.insert('0b0',0)
                         _bytecode.append(_subval)
@@ -439,7 +439,7 @@ class xcParser:
                             elif _sym_ariexp[idx].isdigit():
                                 _sym_ariexp[idx] = int(_sym_ariexp[idx])
                         _sym_endval = self.parse_ari(_sym_ariexp)
-                        _subval = BitArray( '{}'.format( hex(_sym_endval) ) )
+                        _subval = BitArray( '{}'.format( hex(_sym_endval * 8) ) )
                         while len(_subval) < 58:
                             _subval.insert('0b0',0)
                         _bytecode.append(_subval)
@@ -588,7 +588,7 @@ class xcParser:
                     or (_syment[1] == 'F' and _syment[2] == 'R' and _syment[3] == 'I')
                 # if this is a value we can immediately substitute into the instruction
                 if _valid_imm_internal:
-                    _subval = BitArray( '{}'.format( hex(_syment[0]) ) )
+                    _subval = BitArray( '{}'.format( hex(_syment[0] * 16) ) )
                     while len(_subval) < 46:
                         _subval.insert('0b0',0)
                     _bytecode.append(_subval)
@@ -601,7 +601,7 @@ class xcParser:
                         elif _sym_ariexp[idx].isdigit():
                             _sym_ariexp[idx] = int(_sym_ariexp[idx])
                     _sym_endval = self.parse_ari(_sym_ariexp)
-                    _subval = BitArray( '{}'.format( hex(_sym_endval) ) )
+                    _subval = BitArray( '{}'.format( hex(_sym_endval * 16) ) )
                     while len(_subval) < 46:
                         _subval.insert('0b0',0)
                     _bytecode.append(_subval)
