@@ -43,7 +43,7 @@ TEST5:
         # test load
     LOAD    $T0     $T0($SP)
         # test equ directive
-    _VAL EQU 0xff
+    _VAL EQU 0x0
         # test nop
 END:NOP
     JMP END
