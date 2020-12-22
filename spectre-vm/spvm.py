@@ -7,6 +7,7 @@ import queue
 import time
 from datetime import date
 import binascii
+import abi
 
 # help function
 def show_help():
@@ -17,7 +18,9 @@ def show_help():
     sys.exit(0)
 
 spgl_crext = {
-    'halt' : 0
+    'halt' : 0,
+    'run_once' : 0,
+    'old_exit' : [1,0]
 }
 
 class CPU:
@@ -98,20 +101,36 @@ class CPU:
         self.__mem : RAM = mem_ref
         self.__memlock : threading.Lock = mem_lock
         self.__rvec = 0x0 # reset vector: the first place the cpu will attempt to execute instructions from
-        self.rs_registers['ip'].int = self.__rvec
+        self.rs_registers['ip'].uint = self.__rvec
+        # set stack pointer to top of memory
+        # self.gp_registers[10].uint = self.__mem.size_bytes
+
+    def set_rvec(self, rvec):
+        if rvec not in range(0, self.__mem.size_bytes):
+            print('! cpu: invalid reset vector {}'.format( hex(rvec) ))
+            return -1
+        self.__rvec = rvec
+        return 0
+    # resets the instruction pointer to the reset vector only
+    def soft_reset(self):
+        self.rs_registers['ip'].uint = self.__rvec
+        return
 
     # THE HOLY NOP
     def __inst_nop(self):
+        global spgl_crext
+        if spgl_crext['old_exit'][0]:
+            spgl_crext['old_exit'][1] += 1
         return
     # arithmetic
     def __inst_mov(self):
-        _src : int = self.rs_registers['ir'][6:12].int
-        _dst : int = self.rs_registers['ir'][12:18].int
+        _src : int = self.rs_registers['ir'][6:12].uint
+        _dst : int = self.rs_registers['ir'][12:18].uint
         self.gp_registers[_dst].int = self.gp_registers[_src].int
         return
     def __inst_add(self):
-        _src : int = self.rs_registers['ir'][6:12].int
-        _dst : int = self.rs_registers['ir'][12:18].int
+        _src : int = self.rs_registers['ir'][6:12].uint
+        _dst : int = self.rs_registers['ir'][12:18].uint
         _ovf = (self.gp_registers[_src][0],self.gp_registers[_dst][0])
         self.gp_registers[_dst].int += self.gp_registers[_src].int
         # if MSB is different from the other two, if they were equal, then an overflow has occurred
@@ -121,8 +140,8 @@ class CPU:
             self.rs_registers['rf'][5] = 1
         return
     def __inst_sub(self):
-        _src : int = self.rs_registers['ir'][6:12].int
-        _dst : int = self.rs_registers['ir'][12:18].int
+        _src : int = self.rs_registers['ir'][6:12].uint
+        _dst : int = self.rs_registers['ir'][12:18].uint
         _ovf = (self.gp_registers[_src][0],self.gp_registers[_dst][0])
         self.gp_registers[_dst].int -= self.gp_registers[_src].int
         # if MSB is different from the other two, if they were equal, then an overflow has occurred
@@ -132,11 +151,11 @@ class CPU:
             self.rs_registers['rf'][5] = 1
         return
     def __inst_movi(self):
-        _dst : int = self.rs_registers['ir'][6:12].int
+        _dst : int = self.rs_registers['ir'][6:12].uint
         self.gp_registers[_dst].int = self.rs_registers['ir'][12:64].int
         return
     def __inst_addi(self):
-        _dst : int = self.rs_registers['ir'][6:12].int
+        _dst : int = self.rs_registers['ir'][6:12].uint
         _ovf = (self.gp_registers[_dst][0],self.rs_registers['ir'][12])
         self.gp_registers[_dst].int += self.rs_registers['ir'][12:64].int
         # if MSB is different from the other two, if they were equal, then an overflow has occurred
@@ -146,7 +165,7 @@ class CPU:
             self.rs_registers['rf'][5] = 1
         return
     def __inst_subi(self):
-        _dst : int = self.rs_registers['ir'][6:12].int
+        _dst : int = self.rs_registers['ir'][6:12].uint
         _ovf = (self.gp_registers[_dst][0],self.rs_registers['ir'][12])
         self.gp_registers[_dst].int -= self.rs_registers['ir'][12:64].int
         # if MSB is different from the other two, if they were equal, then an overflow has occurred
@@ -157,28 +176,88 @@ class CPU:
         return
     # branches
     def __inst_beq(self):
+        _r1 : int = self.rs_registers['ir'][6:12].uint
+        _r2 : int = self.rs_registers['ir'][12:18].uint
+        _addr : int = self.rs_registers['ir'][18:64].uint
+        # if contents of r1 equals contents of r2, then branch to address
+        if (self.gp_registers[_r1].int == self.gp_registers[_r2].int):
+            self.rs_registers['ip'].uint = _addr
         return
     def __inst_bne(self):
+        _r1 : int = self.rs_registers['ir'][6:12].uint
+        _r2 : int = self.rs_registers['ir'][12:18].uint
+        _addr : int = self.rs_registers['ir'][18:64].uint
+        # if contents of r1 doesn't equal contents of r2, then branch to address
+        if (self.gp_registers[_r1].int != self.gp_registers[_r2].int):
+            self.rs_registers['ip'].uint = _addr
         return
     def __inst_blt(self):
+        _r1 : int = self.rs_registers['ir'][6:12].uint
+        _r2 : int = self.rs_registers['ir'][12:18].uint
+        _addr : int = self.rs_registers['ir'][18:64].uint
+        # if contents of r1 is less than contents of r2, then branch to address
+        if (self.gp_registers[_r1].int < self.gp_registers[_r2].int):
+            self.rs_registers['ip'].uint = _addr
         return
     def __inst_bgt(self):
+        _r1 : int = self.rs_registers['ir'][6:12].uint
+        _r2 : int = self.rs_registers['ir'][12:18].uint
+        _addr : int = self.rs_registers['ir'][18:64].uint
+        # if contents of r1 is greater than contents of r2, then branch to address
+        if (self.gp_registers[_r1].int > self.gp_registers[_r2].int):
+            self.rs_registers['ip'].uint = _addr
         return
     # jumps
     def __inst_jmp(self):
+        # jump to address
+        self.rs_registers['ip'].uint = self.rs_registers['ir'][6:64].uint
         return
     def __inst_jal(self):
+        # jump to address, but save pointer to next instruction in $ra
+        self.gp_registers[11].uint = self.rs_registers['ip'].uint
+        self.rs_registers['ip'].uint = self.rs_registers['ir'][6:64].uint
         return
     def __inst_jr(self):
+        # jump to address, pointed to by register
+        _rr : int = self.rs_registers['ir'][6:12].uint
+        self.rs_registers['ip'].uint = self.gp_registers[_rr].uint
         return
     # load/store memory
     def __inst_load(self):
+        _rs : int = self.rs_registers['ir'][6:12].uint
+        _rm : int = self.rs_registers['ir'][12:18].uint
+        _ro : int = self.rs_registers['ir'][18:24].int
+        # read the 4 bytes from offset of memptr into src register
+        self.__memlock.acquire()
+        self.gp_registers[_rs].int = self.__mem.read_qwrd(self.gp_registers[_rm].uint + self.gp_registers[_ro].int)
+        self.__memlock.release()
         return
     def __inst_stor(self):
+        _rs : int = self.rs_registers['ir'][6:12].uint
+        _rm : int = self.rs_registers['ir'][12:18].uint
+        _ro : int = self.rs_registers['ir'][18:24].uint
+        # save the 4 bytes from src register to offset of memptr
+        self.__memlock.acquire()
+        self.__mem.write_qwrd(self.gp_registers[_rs], self.gp_registers[_rm].uint + self.gp_registers[_ro].int)
+        self.__memlock.release()
         return
     def __inst_loadi(self):
+        _rs : int = self.rs_registers['ir'][6:12].uint
+        _rm : int = self.rs_registers['ir'][12:18].uint
+        _of : int = self.rs_registers['ir'][18:64].int
+        # read the 4 bytes from offset of memptr into src register
+        self.__memlock.acquire()
+        self.gp_registers[_rs].int = self.__mem.read_qwrd(self.gp_registers[_rm].uint + _of)
+        self.__memlock.release()
         return
     def __inst_stori(self):
+        _rs : int = self.rs_registers['ir'][6:12].uint
+        _rm : int = self.rs_registers['ir'][12:18].uint
+        _of : int = self.rs_registers['ir'][18:64].int
+        # save the 4 bytes from src register to offset of memptr
+        self.__memlock.acquire()
+        self.__mem.write_qwrd(self.gp_registers[_rs], self.gp_registers[_rm].uint + _of)
+        self.__memlock.release()
         return
     # syscall
     def __inst_sysc(self):
@@ -186,8 +265,8 @@ class CPU:
 
     # handles instruction in 'ir' register
     def __handle_ir(self):
-        # print('#\tcpu executing {}'.format(self.__inst_arch[self.rs_registers['ir'][0:6].int]))
-        self.__inst_arch[self.rs_registers['ir'][0:6].int]()
+        print('#\tcpu executing {}'.format(abi.op_lookup[self.rs_registers['ir'][0:6].uint]))
+        self.__inst_arch[self.rs_registers['ir'][0:6].uint]()
 
     # executes an instruction
     def exec(self):
@@ -197,7 +276,8 @@ class CPU:
             return
         else:
             self.__memlock.acquire()
-            _inst = self.__mem.read_qwrd(self.rs_registers['ip'].int)
+            _inst = self.__mem.read_qwrd(self.rs_registers['ip'].uint)
+            self.rs_registers['ip'].int += 0x40
             self.__memlock.release()
             if not isinstance(_inst, BitArray):
                 # mem read error / interrupt
@@ -209,7 +289,9 @@ class CPU:
             # self.rs_registers['ir'][0:6] = inst opcode, which determines rest of inst bit layout
             # print('# cpu: executing instruction {}'.format(self.rs_registers['ir'][0:6].bin))
             self.__handle_ir()
-            self.rs_registers['ip'].int += 0x40
+            if spgl_crext['run_once'] or (spgl_crext['old_exit'][0] and spgl_crext['old_exit'][1] >= 5):
+                spgl_crext['halt'] = 1
+                spgl_crext['old_exit'][1] = 0
             return
 
 
@@ -220,6 +302,7 @@ spgl_runnext = 0
 
 class RAM:
     def __init__(self, size):
+        self.size_bytes = int(size / 8)
         self.__mem = BitArray(length=size)
 
     def __validate_pddr(self, pddr, offset_end):
@@ -316,6 +399,9 @@ class SPECTRE_VM(threading.Thread):
 
 spvm : SPECTRE_VM = None
 
+def pf_print(sh_prefix):
+    print(sh_prefix,end='')
+
 # main runner for emulator
 def main(main__debug=False):
     global spvm
@@ -337,7 +423,7 @@ def main(main__debug=False):
     spvm.start()
 
     while __spvm_shell:
-        print(__sh_prefix,end='')
+        pf_print(__sh_prefix)
         try:
             retc = parse_shell(input())
             if retc != -1:
@@ -357,6 +443,9 @@ def parse_shell(line):
     global spgl_memdump
 
     argv = line.split()
+
+    if len(argv) < 1:
+        return -1
 
     # -----------
     #    TODO:
@@ -384,7 +473,8 @@ def parse_shell(line):
             spgl_mdflock.acquire()
             spgl_mdflag0 = 1
             spgl_mdflock.release()
-            time.sleep(1.0)
+            while spgl_mdflag0 == 1:
+                continue
             __memd = spgl_memdump.bin
             n = 64
             f = open(__fout, "w")
@@ -438,10 +528,13 @@ def parse_shell(line):
                         _retc = spvm.mem.write_qwrd(_inst,_paddr)
                         _paddr += 0x40
 
-    elif 'cpu-unhalt' == argv[0]:
+    elif 'cpu-perline' == argv[0]:
+        spgl_crext['run_once'] = True
+
+    elif argv[0] in ['cpu-unhalt', 'run']:
         spgl_crext['halt'] = 0
 
-    elif 'cpu-halt' == argv[0]:
+    elif argv[0] in ['cpu-halt', 'stop']:
         spgl_crext['halt'] = 1
 
     elif 'runstate' == argv[0]:
@@ -453,6 +546,23 @@ def parse_shell(line):
                 spvm.set_run(_runstate)
             except ValueError:
                 print('[!] spvm: "{}" not a valid int'.format(argv[1]))
+
+    elif 'set-rvec' == argv[0]:
+        if len(argv) not in [2,3]:
+            pass
+        else:
+            try:
+                _rv = int(argv[1],0)
+                spvm.cpu.set_rvec(_rv)
+            except ValueError:
+                print('[!] spvm: "{}" not a valid int'.format(argv[1]))
+            if len(argv) == 3:
+                try:
+                    _sr = int(argv[2],0)
+                    if _sr == 1:
+                        spvm.cpu.soft_reset()
+                except ValueError:
+                    print('[!] spvm: "{}" not a valid int'.format(argv[1]))
 
     return -1
 
