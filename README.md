@@ -9,3 +9,6 @@ Note that 'Gabe Svolenka', the original creator and director of the project (inc
 - [ ] todo
 ## 'spectre' CPU architecture overview
 - [ ] todo
+
+## todo list
+- [ ] refactor the entire assembler, now that I have written a better-structured one for the [Hack assembler](https://www.nand2tetris.org/project06) :D
