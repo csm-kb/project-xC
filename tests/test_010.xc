@@ -8,7 +8,7 @@
 .GLOBAL _START
 TEST1:
         # test jr
-JR  $RA
+    JR  $RA
 _START:
         # test mov
     MOV     0       $T0

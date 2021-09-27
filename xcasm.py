@@ -17,7 +17,7 @@ def get_parser_module():
     return parser
 
 def show_help():
-    print("xcasm: xC assembler, written in Python 3.8")
+    print("xcasm: xC assembler, written in Python 3.9")
     print("-\tto show this help menu, run xcasm in a terminal alone or with '-h'.")
     print("-\tto run the assembler: 'xcasm [source].xc -o=[out_file]'\n")
     print("-\t-o=[out_file] : specifies the output file.\n\t\tif '.xe' or no extension is used, the assembler assumes an xC executable.\n\t\tif '.xo' is used, the assembler assumes an xC object file.")
