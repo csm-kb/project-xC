@@ -3,7 +3,7 @@ A project that informed the design of a relatively simple and expandable 64-bit 
 
 The xC assembler and 'spectre' CPU-equipped virtual machine in this repository are written in Python 3.8, in an attempt to emulate those components.
 
-Note that 'Gabe Svolenka', the original creator and director of the project (including its implementation), is merely an alias.
+Note that 'Gabe Svolenka', "the original creator and director of the project (including its implementation)", is merely an alias referring to a fictional character in a programming puzzle game idea that inspired this project.
 
 ## xC assembly instructions
 - [ ] todo
